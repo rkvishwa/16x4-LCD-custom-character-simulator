@@ -91,6 +91,7 @@
             font-family: 'Courier New', monospace;
             font-size: 10px;
             line-height: 1.2;
+            cursor: default;
         }
         
         .binary-square h4 {
@@ -103,6 +104,25 @@
         .binary-row {
             margin: 1px 0;
             color: #333;
+        }
+
+        /* Visual feedback when a binary-square is copied */
+        .binary-square.copied {
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+            border-color: #10b981;
+            background-color: #ecfdf5;
+        }
+
+        .binary-square .copy-hint {
+            display: none;
+            font-size: 9px;
+            color: #10b981;
+            text-align: center;
+            margin-top: 6px;
+        }
+
+        .binary-square.copied .copy-hint {
+            display: block;
         }
     </style>
 </head>
@@ -180,7 +200,7 @@
             
             // For each of the 8 rows in the sub-grid
             for (let subRow = 0; subRow < 8; subRow++) {
-                let binaryString = '';
+                let binaryString = 'B';
                 
                 // For each of the 5 columns in the sub-grid
                 for (let subCol = 0; subCol < 5; subCol++) {
@@ -191,6 +211,8 @@
                     // 0 for blue (default), 1 for white (clicked)
                     binaryString += square && square.classList.contains('white') ? '1' : '0';
                 }
+
+                binaryString += subRow != 7 ? ',' : '';
                 
                 binaryArray.push(binaryString);
             }
@@ -198,22 +220,27 @@
             return binaryArray;
         }
         
-        // Create binary display grid
+        // Create binary display grid (interactive: click to copy the slot's binary array)
         function createBinaryDisplay() {
             const binaryGrid = document.getElementById('binaryGrid');
             binaryGrid.innerHTML = '';
-            
+
             // Create display for each big square (4 rows × 16 columns)
             for (let row = 0; row < 4; row++) {
                 for (let col = 0; col < 16; col++) {
                     const binarySquare = document.createElement('div');
                     binarySquare.className = 'binary-square';
                     binarySquare.id = `binary-${row}-${col}`;
-                    
+
+                    // Make the binary square interactive (click to copy)
+                    binarySquare.style.cursor = 'pointer';
+                    binarySquare.setAttribute('role', 'button');
+                    binarySquare.setAttribute('tabindex', '0');
+
                     const title = document.createElement('h4');
                     title.textContent = `[${row},${col}]`;
                     binarySquare.appendChild(title);
-                    
+
                     // Add 8 rows for binary data
                     for (let i = 0; i < 8; i++) {
                         const binaryRow = document.createElement('div');
@@ -221,9 +248,59 @@
                         binaryRow.textContent = '00000'; // Initial state
                         binarySquare.appendChild(binaryRow);
                     }
-                    
+
+                    // Small hint element shown briefly after copying
+                    const hint = document.createElement('div');
+                    hint.className = 'copy-hint';
+                    hint.textContent = 'Copied to clipboard';
+                    binarySquare.appendChild(hint);
+
+                    // Click handler: copy the binary array for this slot
+                    binarySquare.addEventListener('click', async function(e) {
+                        e.stopPropagation();
+                        const arr = generateBinaryArray(row, col).map(s => s.replace(/,$/, ''));
+                        // Format as a JS array literal with strings
+                        const formatted = '[' + arr.map(s => `'${s}'`).join(', ') + ']';
+                        await copyTextToClipboard(formatted, binarySquare);
+                    });
+
+                    // Also allow Enter/Space to trigger copy for keyboard users
+                    binarySquare.addEventListener('keydown', function(e) {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            this.click();
+                        }
+                    });
+
                     binaryGrid.appendChild(binarySquare);
                 }
+            }
+        }
+
+        // Clipboard helper with fallback and visual feedback
+        async function copyTextToClipboard(text, binarySquare) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    // Fallback for older browsers
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    // Make textarea out of flow and readonly to avoid mobile keyboard
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'absolute';
+                    ta.style.left = '-9999px';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                }
+
+                // Show visual feedback
+                binarySquare.classList.add('copied');
+                setTimeout(() => binarySquare.classList.remove('copied'), 1200);
+            } catch (err) {
+                console.error('Copy failed', err);
             }
         }
         
