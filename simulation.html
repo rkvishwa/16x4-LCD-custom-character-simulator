@@ -260,7 +260,7 @@
                         e.stopPropagation();
                         const arr = generateBinaryArray(row, col).map(s => s.replace(/,$/, ''));
                         // Format as a JS array literal with strings
-                        const formatted = '{' + arr.map(s => `'${s}'`).join(', ') + '}';
+                        const formatted = '{' + arr.map(s => `${s}`).join(', ') + '}';
                         await copyTextToClipboard(formatted, binarySquare);
                     });
 
